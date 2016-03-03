@@ -69,6 +69,7 @@ our $TEST_OK = "Pass";
 our $TEST_NOTFOUND = "NotFound";
 our $TEST_UNDEF = "Undef";
 our $TEST_TIMEOUT = "Timeout";
+our $TEST_EXITCODE = "ExitCode";
 our $RUN_CMD="oshrun";
 our $SHELL_OPT="2>&1";
 our $TEST_CONFIG_FILE="test_parameters.conf";
@@ -140,6 +141,18 @@ sub execute_test($){
     return $TEST_OK;
   }
 
+<<<<<<< HEAD
+=======
+  # In case where checking for exit code value
+  if($test_config->{'expect'} =~ /ExitCode([0-9]+)/) {
+      $success_code = $1;
+      if ($exit_code == $success_code) {
+          return $TEST_EXITCODE;
+      }
+  }
+
+
+>>>>>>> ce40092... Added ExitCode<num> expected status for checking test exit code.
   return $TEST_FAILED;
 }
 
@@ -163,7 +176,11 @@ sub run_test($$) {
 
 	# Set up signal handlers
 	$SIG{'HUP'} = sub {
-		$test_result = $TEST_OK;
+        if ($test_config->{'expect'} =~ /ExitCode/) {
+		    $test_result = $TEST_EXITCODE;
+        } else {
+		    $test_result = $TEST_OK;
+        }
 	};
 
 	$SIG{'INT'} = sub {
@@ -174,6 +191,8 @@ sub run_test($$) {
 	if($child_pid == 0){
 	  my $rc = execute_test $test_config;
 		if($rc eq $TEST_OK){
+			kill 1, getppid(); # signal the parent that test passed.
+		} elsif($rc eq $TEST_EXITCODE){
 			kill 1, getppid(); # signal the parent that test passed.
 		}else{
 			kill 2, getppid(); # signal the parent that test failed.
@@ -211,6 +230,10 @@ sub run_test($$) {
         # Check whether we have a result from the test case before looking at it.
         if($test_result ne $TEST_UNDEF){
           if($test_result eq $test_config->{'expect'}){
+            print "OK\n";
+            $ht_stats->{'pass'}++;
+            last;
+          } elsif($test_result eq $TEST_EXITCODE) {
             print "OK\n";
             $ht_stats->{'pass'}++;
             last;
